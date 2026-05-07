@@ -56,10 +56,12 @@ def search_adzuna_jobs(
         "app_id": adzuna_app_id,
         "app_key": adzuna_app_key,
         "what": query,
-        "where": location,
         "results_per_page": results_per_page,
         "content-type": "application/json",
     }
+    location_value = location.strip()
+    if location_value and location_value.lower() not in {"germany", "deutschland", "de"}:
+        params["where"] = location_value
 
     try:
         response = requests.get(url, params=params, timeout=20)
@@ -89,6 +91,38 @@ def search_adzuna_jobs(
                 "salary_min": job.get("salary_min"),
                 "salary_max": job.get("salary_max"),
             })
+
+        if not jobs and "where" in params:
+            broad_params = dict(params)
+            searched_location = broad_params.pop("where")
+            broad_response = requests.get(url, params=broad_params, timeout=20)
+            if broad_response.status_code == 200:
+                broad_data = broad_response.json()
+                for job in broad_data.get("results", []):
+                    jobs.append({
+                        "source": "Adzuna",
+                        "title": job.get("title"),
+                        "company": job.get("company", {}).get("display_name"),
+                        "location": job.get("location", {}).get("display_name"),
+                        "description": job.get("description"),
+                        "url": job.get("redirect_url"),
+                        "created": job.get("created"),
+                        "category": job.get("category", {}).get("label"),
+                        "contract_type": job.get("contract_type"),
+                        "salary_min": job.get("salary_min"),
+                        "salary_max": job.get("salary_max"),
+                        "note": f"No exact Adzuna results for location '{searched_location}', so this broader Germany search result was used.",
+                    })
+
+        if not jobs:
+            return [{
+                "source": "Adzuna",
+                "warning": "No jobs found for this Adzuna query.",
+                "query": query,
+                "location": location,
+                "page": page,
+                "suggestion": "Try a broader or German-market query, for example: Junior AI Engineer, Machine Learning Engineer, Data Scientist, Python Developer, or Software Engineer.",
+            }]
 
         return jobs
 

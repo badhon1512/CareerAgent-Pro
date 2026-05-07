@@ -9,4 +9,5 @@ router = APIRouter()
 
 @router.post("/run", response_model=AgentRunResponse)
 async def run_browser_agent(payload: AgentRunRequest) -> AgentRunResponse:
-    return await agent.run(payload.input)
+    print("Received request to run agent with input:", payload.cv_text)
+    return await agent.run(payload.input, cv_text=payload.cv_text)
